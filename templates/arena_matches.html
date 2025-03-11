@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arena Match History</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-bottom: 20px; 
+            table-layout: fixed; /* Ensures equal column widths */
+        }
+        th, td { 
+            border: 1px solid black; 
+            padding: 10px; 
+            text-align: center; 
+            white-space: nowrap; /* Prevents text wrapping */
+            overflow: hidden;
+            text-overflow: ellipsis; /* Truncate long text */
+        }
+        th { background-color: #f4f4f4; }
+        td:first-child { font-weight: bold; } /* Make summoner names bold */
+    </style>
+</head>
+<body>
+    <h1>Arena Match History</h1>
+
+    {% for match in arena_matches %}
+        <h2>Match ID: {{ match.match_id }}</h2>
+
+        {% for team, team_data in match.teams.items() %}
+            <h3>#{{ team_data.placement }} - Team {{ team }}</h3>
+            <table>
+                <colgroup>
+                    <col style="width: 16%;"> <!-- Summoner -->
+                    <col style="width: 12%;"> <!-- Champion -->
+                    <col style="width: 10%;"> <!-- KDA -->
+                    <col style="width: 10%;"> <!-- KDA Ratio -->
+                    <col style="width: 12%;"> <!-- Kill Participation -->
+                    <col style="width: 10%;"> <!-- Total Damage -->
+                    <col style="width: 10%;"> <!-- Damage Taken -->
+                    <col style="width: 10%;"> <!-- Gold Earned -->
+                    <col style="width: 10%;"> <!-- Augments -->
+                    <col style="width: 10%;"> <!-- Items -->
+                </colgroup>
+                <tr>
+                    <th>Summoner</th>
+                    <th>Champion</th>
+                    <th>KDA</th>
+                    <th>KDA Ratio</th>
+                    <th>Kill Participation</th>
+                    <th>Total Damage</th>
+                    <th>Damage Taken</th>
+                    <th>Gold Earned</th>
+                    <th>Augments</th>
+                    <th>Items</th>
+                </tr>
+                {% for player in team_data.players %}
+                <tr>
+                    <td>{{ player.summoner_name }}</td>
+                    <td>{{ player.champion }}</td>
+                    <td>{{ player.kda }}</td>
+                    <td>{{ player.kda_ratio }}</td>
+                    <td>{{ player.kill_participation }}</td>
+                    <td>{{ player.total_damage }}</td>
+                    <td>{{ player.total_damage_taken }}</td>
+                    <td>{{ player.gold_earned }}</td>
+                    <td>{{ player.augments }}</td>
+                    <td>{{ player.items }}</td> <!-- Items now displayed properly -->
+                </tr>
+                {% endfor %}
+            </table>            
+        {% endfor %}
+    {% endfor %}
+</body>
+</html>

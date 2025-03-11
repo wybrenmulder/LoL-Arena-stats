@@ -1,3 +1,4 @@
+from pprint import pprint
 from api_key import API_KEY
 from requests import get
 
@@ -16,6 +17,17 @@ REGION_DATA = {
     "OCE": ("oc1", "sea"),
 }
 
+TEAM_NAMES = {
+    1: "Poro",
+    2: "Minion",
+    3: "Scuttle",
+    4: "Krug",
+    5: "Raptor",
+    6: "Sentinel",
+    7: "Wolf",
+    8: "Gromp",
+}
+
 
 def get_puuid(game_name, tag_line):
     """Fetch PUUID using Riot ID (game name + tag)"""
@@ -26,23 +38,35 @@ def get_puuid(game_name, tag_line):
     if response.status_code == 200:
         data = response.json()
         return data["puuid"], data["gameName"], data["tagLine"]
-    print(f"Error {response.status_code}: {response.text}")
+    print_error(response)
     return None, None, None
+
+
+def print_error(response):
+    """Helper function to handle errors"""
+    print(f"Error {response.status_code}: {response.text}")
 
 
 def get_summoner_region(puuid):
     """Fetch Summoner Info using PUUID to determine the correct region"""
     for server, match_region in REGION_DATA.values():
-        url = f"https://{server}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/{puuid}"
-        headers = {"X-Riot-Token": API_KEY}
-
-        response = get(url, headers=headers)
-        if response.status_code == 200:
+        region = fetch_summoner_info(server, puuid)
+        if region:
             print(f"Found summoner in region: {server.upper()}")
-            return server, match_region  # Returns both summoner server and match region
-
+            return server, match_region
     print("Could not determine summoner's region.")
     return None, None
+
+
+def fetch_summoner_info(server, puuid):
+    """Helper to fetch the summoner info"""
+    url = f"https://{server}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/{puuid}"
+    headers = {"X-Riot-Token": API_KEY}
+    response = get(url, headers=headers)
+    if response.status_code == 200:
+        return response.json()
+    print_error(response)
+    return None
 
 
 def get_match_history(puuid, region, start=0, count=20):
@@ -53,117 +77,129 @@ def get_match_history(puuid, region, start=0, count=20):
     response = get(url, headers=headers)
     if response.status_code == 200:
         return response.json()
-    print(f"Error {response.status_code}: {response.text}")
+    print_error(response)
     return None
 
 
 def get_match_details(match_id, region):
-    """Fetch match details, check if it's an Arena game, and extract all 8 teams with their players."""
+    """Fetch match details and check if it's an Arena game"""
     url = f"https://{region}.api.riotgames.com/lol/match/v5/matches/{match_id}"
     headers = {"X-Riot-Token": API_KEY}
 
     response = get(url, headers=headers)
-    if response.status_code == 200:
-        data = response.json()
-        game_mode = data.get("info", {}).get("gameMode")
+    if response.status_code != 200:
+        print_error(response)
+        return False, None
 
-        # Check if the game mode is Arena (internally called "CHERRY")
-        if game_mode != "CHERRY":
-            return False, None
+    data = response.json()
+    game_mode = data.get("info", {}).get("gameMode")
+    if game_mode != "CHERRY":
+        return False, None
 
-        participants = data.get("info", {}).get("participants", [])
-        teams = {}  # {team_name: [player1, player2]}
+    return True, process_participants(data.get("info", {}).get("participants", []))
 
-        # Mapping subteam IDs to names
-        TEAM_NAMES = {
-            1: "Poro",
-            2: "Minion",
-            3: "Scuttle",
-            4: "Krug",
-            5: "Raptor",
-            6: "Sentinel",
-            7: "Wolf",
-            8: "Gromp",
-        }
 
-        for player in participants:
-            summoner_name = (
-                player.get("riotIdGameName", "Unknown")
-                + "#"
-                + player.get("riotIdTagline", "0000")
-            )
-            subteam_id = player.get("playerSubteamId", 0)  # Get the subteam ID
+def process_participants(participants):
+    """Process participants and return teams with player info in a dictionary format"""
+    teams = {}
+    placements = {}
 
-            team_name = TEAM_NAMES.get(
-                subteam_id, f"Unknown Team {subteam_id}"
-            )  # Map to team name
+    for player in participants:
+        summoner_name = (
+            player.get("riotIdGameName", "Unknown")
+            + "#"
+            + player.get("riotIdTagline", "0000")
+        )
+        subteam_id = player.get("playerSubteamId", 0)  # Get the subteam ID
+        placement = player.get("placement", 9)  # Get team placement (default to 9 if missing)
 
-            if team_name not in teams:
-                teams[team_name] = []
+        augments = [
+            player.get(f"playerAugment{i}", None) for i in range(1, 7)
+        ]
+        augments = [a for a in augments if a is not None]  # Remove None values
+        augments_str = ", ".join(map(str, augments))  # Convert to string for display
 
-            teams[team_name].append(summoner_name)
+        player_info = format_player_info(player, summoner_name, augments_str)
 
-        return True, teams
+        team_name = TEAM_NAMES.get(subteam_id, f"Unknown Team {subteam_id}")  # Map to team name
+        if team_name not in teams:
+            teams[team_name] = []
+            placements[team_name] = placement  # Store placement per team
 
-    print(f"Error {response.status_code}: {response.text}")
-    return False, None
+        teams[team_name].append(player_info)
+
+    return sort_teams(teams, placements)
+
+
+def format_player_info(player, summoner_name, augments_str):
+    """Format player info into a dictionary"""
+    champion = player.get("championName", "Unknown")
+    kills = player.get("kills", 0)
+    deaths = player.get("deaths", 0)
+    assists = player.get("assists", 0)
+    total_damage = player.get("totalDamageDealtToChampions", 0)
+    total_damage_taken = player.get("totalDamageTaken", 0)
+    gold_earned = player.get("goldEarned", 0)
+
+    kda = f"{kills}/{deaths}/{assists}"
+    kill_participation = (kills + assists) / (kills + deaths + assists) * 100 if (kills + deaths + assists) > 0 else 0
+    kda_ratio = f"{(kills + assists) / (deaths + 1):.2f}"  # Avoid divide by 0
+
+    # Return player info as a dictionary
+    return {
+        "summoner_name": summoner_name,
+        "champion": champion,
+        "kda": kda,
+        "kill_participation": kill_participation,
+        "kda_ratio": kda_ratio,
+        "total_damage": total_damage,
+        "total_damage_taken": total_damage_taken,
+        "gold_earned": gold_earned,
+        "augments": augments_str
+    }
+
+
+def sort_teams(teams, placements):
+    """Sort teams based on placement"""
+    sorted_teams = sorted(teams.keys(), key=lambda t: placements[t])
+    return {team: teams[team] for team in sorted_teams}
 
 
 def main():
-    # User input
-    game_name = input("Enter your Riot Game Name (without #tag): ").strip()
-    tag_line = input("Enter your Riot Tagline (after #): ").strip()
+    game_name = "wybo"
+    tag_line = "plstn"
 
     # Get PUUID
     puuid, actual_game_name, actual_tag_line = get_puuid(game_name, tag_line)
-
-    if puuid:
-        print(f"\nFound Account: {actual_game_name}#{actual_tag_line}")
-        print(f"PUUID: {puuid}")
-
-        # Determine the summoner's actual region
-        summoner_region, match_region = get_summoner_region(puuid)
-
-        if summoner_region and match_region:
-            # Get Match History
-            match_ids = get_match_history(puuid, match_region)
-
-            if match_ids:
-                print("\nLast 20 Matches:")
-                arena_matches = []
-
-                for idx, match_id in enumerate(match_ids, start=1):
-                    is_arena, _ = get_match_details(match_id, match_region)
-                    if is_arena:
-                        print(f"{idx}. {match_id} (Arena)")
-                        arena_matches.append(match_id)
-                    else:
-                        print(f"{idx}. {match_id} (Not Arena)")
-
-                if arena_matches:
-                    # Get details of the most recent Arena match
-                    last_arena_match = arena_matches[0]
-                    print(f"\nRecent Arena Matches with Players:\n")
-                    print(f"Last Arena Match ID: {last_arena_match}\n")
-
-                    _, teams = get_match_details(last_arena_match, match_region)
-                    if teams:
-                        for team_name, players in teams.items():
-                            print(f"Team {team_name}:")
-                            for player in players:
-                                print(f"- {player}")
-                            print("")  # Extra line for readability
-                    else:
-                        print("Could not retrieve team details.")
-                else:
-                    print("No recent Arena matches found.")
-            else:
-                print("Could not retrieve match history.")
-        else:
-            print("Could not determine the correct region.")
-    else:
+    if not puuid:
         print("Could not find PUUID. Check your game name and tagline.")
+        return
+
+    # Determine the summoner's actual region
+    summoner_region, match_region = get_summoner_region(puuid)
+    if not summoner_region or not match_region:
+        print("Could not determine the correct region.")
+        return
+
+    # Get Match History
+    match_ids = get_match_history(puuid, match_region)
+    if not match_ids:
+        print("Could not retrieve match history.")
+        return
+
+    arena_matches = []
+
+    for match_id in match_ids:
+        is_arena, teams = get_match_details(match_id, match_region)
+        if is_arena:
+            arena_matches.append({"match_id": match_id, "teams": teams})
+
+    if arena_matches:
+        return {"arena_matches": arena_matches}
+    else:
+        return {"message": "No recent Arena matches found."}
 
 
 if __name__ == "__main__":
-    main()
+    data = main()
+    pprint(data)
