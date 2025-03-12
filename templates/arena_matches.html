@@ -34,16 +34,16 @@
             <h3>#{{ team_data.placement }} - Team {{ team }}</h3>
             <table>
                 <colgroup>
-                    <col style="width: 16%;"> <!-- Summoner -->
+                    <col style="width: 12%;"> <!-- Summoner -->
                     <col style="width: 12%;"> <!-- Champion -->
-                    <col style="width: 10%;"> <!-- KDA -->
+                    <col style="width: 8%;"> <!-- KDA -->
                     <col style="width: 10%;"> <!-- KDA Ratio -->
                     <col style="width: 12%;"> <!-- Kill Participation -->
-                    <col style="width: 10%;"> <!-- Total Damage -->
-                    <col style="width: 10%;"> <!-- Damage Taken -->
-                    <col style="width: 10%;"> <!-- Gold Earned -->
-                    <col style="width: 10%;"> <!-- Augments -->
-                    <col style="width: 10%;"> <!-- Items -->
+                    <col style="width: 12%;"> <!-- Total Damage -->
+                    <col style="width: 12%;"> <!-- Damage Taken -->
+                    <col style="width: 12%;"> <!-- Gold Earned -->
+                    <col style="width: 12%;"> <!-- Augments -->
+                    <col style="width: 12%;"> <!-- Items -->
                 </colgroup>
                 <tr>
                     <th>Summoner</th>
@@ -55,7 +55,7 @@
                     <th>Damage Taken</th>
                     <th>Gold Earned</th>
                     <th>Augments</th>
-                    <th>Items</th>
+                    <th>Items</th> <!-- New header for Items -->
                 </tr>
                 {% for player in team_data.players %}
                 <tr>
@@ -68,10 +68,10 @@
                     <td>{{ player.total_damage_taken }}</td>
                     <td>{{ player.gold_earned }}</td>
                     <td>{{ player.augments }}</td>
-                    <td>{{ player.items }}</td> <!-- Items now displayed properly -->
+                    <td>{{ player.items_inv }}</td> <!-- Display Items -->
                 </tr>
                 {% endfor %}
-            </table>            
+            </table>
         {% endfor %}
     {% endfor %}
 </body>

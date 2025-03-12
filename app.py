@@ -19,7 +19,6 @@ REGION_DATA = {
     "JP": ("jp1", "asia"),
 }
 
-
 TEAM_NAMES = {
     1: "Poro",
     2: "Minion",
@@ -47,7 +46,7 @@ def get_puuid(game_name, tag_line):
 
 def get_summoner_region(puuid):
     """Determine the summoner's region by checking all possible servers"""
-    for _, (server, match_region) in REGION_DATA.items():
+    for (server, match_region) in REGION_DATA.values():
         if fetch_summoner_info(server, puuid):
             print(f"Found summoner in {server.upper()} (Match Region: {match_region})")
             return server, match_region
@@ -145,13 +144,19 @@ def format_player_info(player, team_total_kills):
     kda_ratio = f"{(kills + assists) / max(1, deaths):.2f}:1"
     kill_participation = f"{((kills + assists) / max(1, team_total_kills)) * 100:.2f}%"
 
-    # Get Augments (only non-empty ones) & Convert to String
-    augments = [str(player.get(f"playerAugment{i}", "N/A")) for i in range(1, 7)]
-    augments = [a for a in augments if a != "N/A"]  # Remove empty slots
+    # Get Augments (only non-empty ones)
+    augments = [str(player.get(f"playerAugment{i}", "N/A")) for i in range(6)]
+    augments = [a for a in augments if a != "N/A"]
     augments_str = ", ".join(augments) if augments else "None"
+
+    # Get Item IDs (only non-zero values)
+    items = [str(player.get(f"item{i}", 0)) for i in range(7)]  # Fetch item slots
+    items = [i for i in items if i != "0"]  # Filter out empty slots
+    items_str = ", ".join(items) if items else "None"
 
     return {
         "summoner_name": f"{player.get('riotIdGameName', 'Unknown')}#{player.get('riotIdTagline', '0000')}",
+        "level": player["champLevel"],
         "champion": player["championName"],
         "kda": f"{kills}/{deaths}/{assists}",
         "kda_ratio": kda_ratio,
@@ -159,7 +164,8 @@ def format_player_info(player, team_total_kills):
         "total_damage": player["totalDamageDealtToChampions"],
         "total_damage_taken": player["totalDamageTaken"],
         "gold_earned": player["goldEarned"],
-        "augments": augments_str
+        "augments": augments_str,
+        "items_inv": items_str
     }
 
 
